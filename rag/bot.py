@@ -13,9 +13,13 @@ from llama_index import (
     VectorStoreIndex,
 )
 
+# Check if the environment variable is set
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError("The OPENAI_API_KEY environment variable is not set.")
+
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
+# This class is used to implement the RAGBot
 class RAGBot(ActionHandlerMixin):
     def __init__(self, logger, st):
         self.index = VectorStoreIndex.from_documents([])
@@ -30,10 +34,12 @@ class RAGBot(ActionHandlerMixin):
 
         self.init_messages()
 
+    # This function is used to initialize the messages
     def init_messages(self):
         system_str = "You are a helpful assistant. Please do not try to answer the question directly."
         self.messages = [{"role": "system", "content": system_str}]
 
+    # This function is used to check if a text contains a URL
     def contains_url(self, text):
         import re
 
@@ -46,6 +52,7 @@ class RAGBot(ActionHandlerMixin):
         else:
             return False
 
+    # This function is used to process the user's query
     def __call__(self, query):
         self.messages.append(
             {"role": "user", "content": query},
@@ -56,6 +63,7 @@ class RAGBot(ActionHandlerMixin):
             stream=True,
         )
 
+    # This action is used to answer a question or search online
     @action(name="AnswerQuestion", stop=True)
     def answer_question(self, query: str):
         """
@@ -85,6 +93,7 @@ class RAGBot(ActionHandlerMixin):
             orch_expr=SelectOne(["GoogleSearch"]),
         )
 
+    # This action is used to execute a user instruction and provide an appropriate response
     @action(name="ExecuteInstruction", stop=True)
     def execute_instruction(self, query: str):
         """
@@ -104,6 +113,7 @@ class RAGBot(ActionHandlerMixin):
             orch_expr=SelectOne([]),
         )
 
+    # This action is used to perform a Google search and return query results with titles and links
     @action(name="GoogleSearch", stop=True, scope="search")
     def search(self, query: str):
         """
@@ -134,6 +144,7 @@ class RAGBot(ActionHandlerMixin):
 
         return f"Here are Google search results:\n\n{formatted_data}"
 
+    # This action is used to recall info from your knowledge base
     @action("Recall", stop=True)
     def recall(self, text):
         """
@@ -165,6 +176,7 @@ class RAGBot(ActionHandlerMixin):
         else:
             return "No information on this topic."
 
+    # This action is used to read content from various sources
     @action("Read", stop=True)
     def read(self, sources: str):
         """
@@ -186,6 +198,7 @@ class RAGBot(ActionHandlerMixin):
             orch_expr=RequireNext(["ReadFile"]),
         )
 
+    # This action is used to read the content from the provided web links
     @action("ReadURL", scope="read", stop=True)
     def read_url(self, urls: List[str]):
         """
@@ -214,6 +227,7 @@ class RAGBot(ActionHandlerMixin):
                 )
         return f"Contents in URLs {urls} have been successfully learned."
 
+    # This action is used to read the content from provided files or directories
     @action("ReadFile", scope="read", stop=True)
     def read_file(
         self,
@@ -248,6 +262,7 @@ class RAGBot(ActionHandlerMixin):
                 self.index.insert(doc, service_context=service_context)
         return f"Contents in files {[str(file) for file in reader.input_files]} have been successfully embedded."
 
+    # This action is used to remember contents from a list of text documents
     @action("Remember", stop=True)
     def remember_convos_and_clear_messages(self, text_list: List[str]) -> str:
         """
@@ -291,4 +306,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
-    agent = RAGBot(logger, None)
+    try:
+        agent = RAGBot(logger, None)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
